@@ -196,37 +196,56 @@ function animate() {
 }
 
 
-// --- チャットメッセージ処理 ---
-  const chatMessages = document.getElementById("chatMessages");
-  const chatInput = document.getElementById("chatInput");
-  const chatSendBtn = document.getElementById("chatSendBtn");
+ // --- チャットメッセージ処理 ---
+const chatMessages = document.getElementById("chatMessages");
+const chatInput = document.getElementById("chatInput");
+const chatSendBtn = document.getElementById("chatSendBtn");
 
-  function appendChat(msg) {
-    const time = new Date(msg.time).toLocaleTimeString();
-    const div = document.createElement("div");
-    div.innerHTML = `<strong>${escapeHtml(msg.name)}</strong>: ${escapeHtml(msg.text)} <span style="color:#888;font-size:11px;">(${time})</span>`;
-    chatMessages.appendChild(div);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-  }
+// ==== 流れる応援コメント表示関数 ====
+function launchFlyingComment(text) {
+  const el = document.createElement("div");
+  el.className = "flying-comment";
+  el.textContent = text;
 
-  chatSendBtn.onclick = () => {
-    const text = chatInput.value.trim();
-    if (!text) return;
-    socket.emit("chat_message", { text });
-    chatInput.value = "";
-  };
+  // ランダム高さ
+  el.style.top = `${Math.random() * 60 + 10}%`;
 
-  chatInput.addEventListener("keydown", e => {
-    if (e.key === "Enter") chatSendBtn.onclick();
-  });
+  document.body.appendChild(el);
 
-  socket.on("chat_message", (msg) => {
-    appendChat(msg);
-  });
+  // アニメ終了後削除
+  setTimeout(() => el.remove(), 6000);
+}
 
-  socket.on("chat_init", (log) => {
-    log.forEach(msg => appendChat(msg));
-  });
+// === チャットログ表示 ===
+function appendChat(msg) {
+  const time = new Date(msg.time).toLocaleTimeString();
+  const div = document.createElement("div");
+  div.innerHTML = `<strong>${escapeHtml(msg.name)}</strong>: ${escapeHtml(msg.text)} <span style="color:#888;font-size:11px;">(${time})</span>`;
+  chatMessages.appendChild(div);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+chatSendBtn.onclick = () => {
+  const text = chatInput.value.trim();
+  if (!text) return;
+  socket.emit("chat_message", { text });
+  chatInput.value = "";
+};
+
+chatInput.addEventListener("keydown", e => {
+  if (e.key === "Enter") chatSendBtn.onclick();
+});
+
+// === 受信時にチャット表示＋流れるコメント ===
+socket.on("chat_message", (msg) => {
+  appendChat(msg);
+  launchFlyingComment(msg.text); // ← ★追加部分
+});
+
+// 初期履歴ロード
+socket.on("chat_init", (log) => {
+  log.forEach(msg => appendChat(msg));
+});
 
 /**
  * 2. 3D盤面の構築

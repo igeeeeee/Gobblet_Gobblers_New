@@ -239,7 +239,36 @@ io.on("connection", (socket) => {
     io.to(roomID).emit("chat_message", msg);
   });
   // -------------------------------------------------------------
+  // ★ここ！ cheer(応援)イベント
+  // -------------------------------------------------------------
+  socket.on("cheer", (data) => {
+    const roomID = socket.data.roomID;
+    if (!roomID || !rooms[roomID]) return;
 
+    const roomState = rooms[roomID];
+    const slot = socket.data.playerSlot;
+
+    let name = "観戦者";
+    if (slot === "A" && roomState.players.A) name = roomState.players.A.name;
+    else if (slot === "B") name = roomState.players.B.name;
+
+    const text = String(data?.text || "").slice(0, 50);
+    if (!text) return;
+
+    const msg = {
+      name,
+      text,
+      time: Date.now(),
+      type: "cheer",
+      slot
+    };
+
+    // ログに残す場合（残したくなかったらコメントアウト）
+    roomState.chatLog.push(msg);
+    if (roomState.chatLog.length > 50) roomState.chatLog.shift();
+
+    io.to(roomID).emit("cheer", msg);
+  });
   // 再戦処理
   socket.on("restart_game", (data, ack) => {
       const roomID = socket.data.roomID;
