@@ -41,6 +41,12 @@ const modalRestartBtn = document.getElementById('modalRestartBtn');
 const modalLeaveBtn = document.getElementById('modalLeaveBtn');
 const toggleHighlightBtn = document.getElementById('toggleHighlightBtn');
 
+// ★ここを追加: ホーム画面用ボタンの参照★
+const homeSettingsBtn = document.getElementById('homeSettingsBtn'); 
+const gameActionsTab = document.querySelector('.tab-btn[data-tab="tab-control"]'); // ゲーム設定タブボタン
+const gameActionsPane = document.getElementById('tab-control'); // ゲーム設定コンテンツパネル
+
+
 // ★ 新規: リザルトUIの要素
 const resultOverlay = document.getElementById('resultOverlay');
 const resultTitle = document.getElementById('resultTitle');
@@ -227,6 +233,9 @@ function launchFlyingComment(text) {
   el.className = "flying-comment";
   el.textContent = text;
 
+  // ランダム色
+  el.style.color = randomColor();
+
   // ランダム高さ
   el.style.top = `${Math.random() * 60 + 10}%`;
 
@@ -234,6 +243,13 @@ function launchFlyingComment(text) {
 
   // アニメ終了後削除
   setTimeout(() => el.remove(), 6000);
+}
+
+function randomColor() {
+  const r = Math.floor(Math.random() * 200 + 55); 
+  const g = Math.floor(Math.random() * 200 + 55);
+  const b = Math.floor(Math.random() * 200 + 55);
+  return `rgb(${r},${g},${b})`;
 }
 
 // === チャットログ表示 ===
@@ -259,7 +275,12 @@ chatInput.addEventListener("keydown", e => {
 // === 受信時にチャット表示＋流れるコメント ===
 socket.on("chat_message", (msg) => {
   appendChat(msg);
-  launchFlyingComment(msg.text); // ← ★追加部分
+  launchFlyingComment(msg.text);
+});
+
+// === cheer（応援コメント）受信 ===
+socket.on("cheer", (data) => {
+  launchFlyingComment(`${data.name}: ${data.text}`);
 });
 
 // 初期履歴ロード
@@ -349,12 +370,16 @@ function render(stateObj) {
                 const stack = (state.board[r] && state.board[r][c]) ? state.board[r][c] : [];
                 const x = c * CELL_GAP + BOARD_OFFSET;
                 const z = r * CELL_GAP + BOARD_OFFSET;
-                let currentHeight = 0;
                 for (let i = 0; i < stack.length; i++) {
                     const p = stack[i]; 
                     const pieceMesh = createPieceMesh(p.size, p.owner);
-                    const y = currentHeight + pieceMesh.geometry.parameters.height / 2 + 0.1;
+
+                    // ★修正ポイント: 常に盤面の床上(0.1)を基準に配置する
+                    // Cylinderの中心Y座標 = (高さ / 2) + 盤面の高さオフセット(0.1)
+                    const y = pieceMesh.geometry.parameters.height / 2 + 0.1;
+                    
                     pieceMesh.position.set(x, y, z);
+                    
                     pieceMesh.userData = { 
                         type: 'piece', 
                         r, c, 
@@ -363,8 +388,7 @@ function render(stateObj) {
                         isTop: (i === stack.length - 1) 
                     };
                     scene.add(pieceMesh);
-                    pieceMeshes.push(pieceMesh); 
-                    currentHeight += pieceMesh.geometry.parameters.height * 0.2; 
+                    pieceMeshes.push(pieceMesh);
                 }
             }
         }
@@ -532,11 +556,38 @@ function renderHandDOM(){
 }
 
 // --- モーダル関連イベント ---
+//内容変更
 if (settingsBtn) {
     settingsBtn.addEventListener('click', () => {
+    console.log('ゲーム画面からモーダルを開きます');
+        // ゲーム操作タブを元に戻す
+        if (gameActionsTab) gameActionsTab.style.display = 'block'; 
+        modalOverlay.classList.remove('hidden');
+        // 環境設定タブ（tab-env）を強制的にアクティブにする
+        const envTab = document.querySelector('.tab-btn[data-tab="tab-env"]');
+        if (envTab) envTab.click();
+    });
+}
+
+// ★ここを追加: ホーム画面用ボタン★
+if (homeSettingsBtn) {
+    homeSettingsBtn.addEventListener('click', () => {
+        console.log('ホーム画面からモーダルを開きます');
+        
+        // ホーム画面で開いた場合、ゲーム操作タブとコンテンツを非表示にする
+        if (gameActionsTab) gameActionsTab.style.display = 'none';
+        
+        // 非表示にしたコンテンツを非アクティブにする必要はないが、安全のため
+        // if (gameActionsPane) gameActionsPane.classList.remove('active');
+        
+        // 環境設定タブ（tab-env）を強制的にアクティブにする（非表示タブがアクティブにならないように）
+        const envTab = document.querySelector('.tab-btn[data-tab="tab-env"]');
+        if (envTab) envTab.click(); 
+
         modalOverlay.classList.remove('hidden');
     });
 }
+
 if (closeModalBtn) {
     closeModalBtn.addEventListener('click', () => {
         modalOverlay.classList.add('hidden');
@@ -563,6 +614,13 @@ tabButtons.forEach(btn => {
 
 if (modalRestartBtn) {
     modalRestartBtn.addEventListener('click', () => {
+        // ★ここから追加: 観戦者チェック★
+        if (mySlot === 'spectator') {
+            addLog('⚠ 観戦者はゲームの再戦リクエストを送信できません。');
+            modalOverlay.classList.add('hidden');
+            return; // 処理をここで中断
+        }
+        // ★追加ここまで★
         socket.emit('restart_game', {}, (ack) => {
             if (ack && ack.ok) addLog('再戦リクエスト送信');
             else if (ack && ack.error) addLog('再戦失敗: ' + ack.error);
@@ -667,7 +725,16 @@ socket.on('connect', () => {
 });
 socket.on('init', (s) => {});
 socket.on('assign', (d) => {
-    if(d && d.slot) addLog(`(System) Role Assigned: ${d.slot}`);
+    if (d && d.slot) {
+        mySlot = d.slot;   // ★これを追加
+        meLabel.textContent = mySlot;
+        addLog(`(System) Role Assigned: ${d.slot}`);
+
+        // 状態がすでに来ていたら手駒再描画
+        if (state) {
+            render(state);
+        }
+    }
 });
 socket.on('start_game', (s) => {
   // ゲーム開始時にリザルトが開いていたら閉じる
