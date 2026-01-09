@@ -56,6 +56,31 @@ let state = null;
 let selectedPiece = null; 
 let currentRoomID = null; // 現在のルームIDを保持
 
+// --- 音声管理 ---
+const audioFiles = {
+    bgm: new Audio('assets/bgm.mp3'),
+    select: new Audio('assets/select.mp3'),
+    place: new Audio('assets/place.mp3'),
+    win: new Audio('assets/win.mp3'),
+    lose: new Audio('assets/lose.mp3')
+};
+
+// BGMはループ再生
+audioFiles.bgm.loop = true;
+
+// 初期音量設定
+audioFiles.bgm.volume = 0.3; // BGMは少し控えめに
+const seKeys = ['select', 'place', 'win', 'lose'];
+seKeys.forEach(key => audioFiles[key].volume = 0.5);
+
+// SE再生用ヘルパー関数
+function playSE(key) {
+    if (audioFiles[key]) {
+        audioFiles[key].currentTime = 0; // 連打できるように再生位置をリセット
+        audioFiles[key].play().catch(() => {}); // エラー（自動再生ブロック等）は無視
+    }
+}
+
 // 設定値
 let config = {
     highlightMoves: true
@@ -82,6 +107,8 @@ createRoomBtn.addEventListener("click", () => {
         room: roomVal, 
         name: nameVal
     };
+
+    audioFiles.bgm.play().catch(e => console.log('BGM Play Error:', e));
 
     socket.emit("join", joinData, (ack) => {
         if (ack && (ack.ok || ack.slot)) {
@@ -139,11 +166,14 @@ const COLORS = {
     selected: 0xfacc15 
 };
 
+
+// h（高さ）を r（半径）の2倍以上に設定すると、きれいなカプセル型になります
 const PIECE_SIZES = { 
-    small: {r: 0.8, h: 1.0}, 
-    medium: {r: 1.1, h: 1.5}, 
-    large: {r: 1.4, h: 2.0} 
+    small:  { r: 0.8, h: 2.2 }, // h: 1.0 -> 2.2
+    medium: { r: 1.1, h: 3.0 }, // h: 1.5 -> 3.0
+    large:  { r: 1.4, h: 3.8 }  // h: 2.0 -> 3.8
 };
+
 const CELL_GAP = 3.3; 
 const BOARD_OFFSET = -CELL_GAP;
 
@@ -230,6 +260,26 @@ function randomColor() {
   const g = Math.floor(Math.random() * 200 + 55);
   const b = Math.floor(Math.random() * 200 + 55);
   return `rgb(${r},${g},${b})`;
+}
+
+// --- 音量スライダー制御 ---
+const bgmSlider = document.getElementById('bgmVolumeSlider');
+const seSlider = document.getElementById('seVolumeSlider');
+
+if (bgmSlider) {
+    bgmSlider.addEventListener('input', (e) => {
+        const vol = e.target.value / 100;
+        audioFiles.bgm.volume = vol;
+    });
+}
+
+if (seSlider) {
+    seSlider.addEventListener('input', (e) => {
+        const vol = e.target.value / 100;
+        seKeys.forEach(key => {
+            audioFiles[key].volume = vol;
+        });
+    });
 }
 
 // === チャットログ表示 ===
@@ -324,13 +374,136 @@ function buildBoard3D() {
     scene.add(boardGroup);
 }
 
+// 顔のテクスチャを動的に生成する関数
+function createFaceTexture(colorHex) {
+    const size = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+
+    // 1. 背景（プレイヤーカラー）
+    ctx.fillStyle = colorHex;
+    ctx.fillRect(0, 0, size, size);
+
+    // --- 設定（固定化） ---
+    const centerX = size / 2;
+    const eyeY = size * 0.38;
+    const eyeOffset = size * 0.16; // 目の間隔
+    const eyeW = size * 0.14;      // 白目の幅
+    const eyeH = size * 0.18;      // 白目の高さ
+
+    // 共通描画関数
+    function drawEllipse(x, y, w, h, color) {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.ellipse(x, y, w, h, 0, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // 2. 白目
+    drawEllipse(centerX - eyeOffset, eyeY, eyeW, eyeH, 'white');
+    drawEllipse(centerX + eyeOffset, eyeY, eyeW, eyeH, 'white');
+
+    // 3. 黒目 (位置を固定：少し寄り目に)
+    const pupilSize = eyeW * 0.45;
+    const pupilOffset = eyeW * 0.2; 
+
+    // 左目黒目
+    drawEllipse(centerX - eyeOffset + pupilOffset, eyeY, pupilSize, pupilSize, '#333');
+    // 左目ハイライト
+    drawEllipse(centerX - eyeOffset + pupilOffset + pupilSize*0.3, eyeY - pupilSize*0.3, pupilSize*0.3, pupilSize*0.3, 'white');
+
+    // 右目黒目
+    drawEllipse(centerX + eyeOffset - pupilOffset, eyeY, pupilSize, pupilSize, '#333');
+    // 右目ハイライト
+    drawEllipse(centerX + eyeOffset - pupilOffset + pupilSize*0.3, eyeY - pupilSize*0.3, pupilSize*0.3, pupilSize*0.3, 'white');
+
+    // 4. 眉毛
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 10;
+    ctx.lineCap = 'round';
+    
+    // シンプルなアーチ眉
+    ctx.beginPath();
+    ctx.arc(centerX - eyeOffset, eyeY - eyeH - 20, 30, Math.PI * 1.2, Math.PI * 1.8);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(centerX + eyeOffset, eyeY - eyeH - 20, 30, Math.PI * 1.2, Math.PI * 1.8);
+    ctx.stroke();
+
+    // 5. 口 (常に大きく開けた状態に固定)
+    const mouthY = size * 0.65;
+    
+    // 口の中（暗い赤）
+    ctx.fillStyle = '#4a0404'; 
+    ctx.beginPath();
+    ctx.arc(centerX, mouthY, size * 0.15, 0, Math.PI, false);
+    ctx.fill();
+
+    // 歯（上の歯）
+    ctx.fillStyle = 'white';
+    ctx.beginPath();
+    ctx.rect(centerX - size*0.1, mouthY, size*0.2, size*0.04);
+    ctx.fill();
+
+    // 舌
+    ctx.fillStyle = '#ff6b6b';
+    ctx.beginPath();
+    ctx.arc(centerX, mouthY + size*0.1, size * 0.08, 0, Math.PI * 2);
+    ctx.fill();
+
+    return new THREE.CanvasTexture(canvas);
+}
+
 function createPieceMesh(size, owner) {
     const { r, h } = PIECE_SIZES[size];
-    const geometry = new THREE.CylinderGeometry(r, r, h, 32);
-    const color = COLORS[owner];
-    const material = new THREE.MeshStandardMaterial({ color: color });
+    
+    // --- 形状（LatheGeometry）の作成 ---
+    const points = [];
+    const segments = 12; // 丸みの精度
+    const domeRadius = r; // 半径そのものをドームの半径にする
+    const bodyHeight = Math.max(0, h - domeRadius); // 胴体の長さ
+
+    // 1. 底面の中心
+    points.push(new THREE.Vector2(0, 0));
+    // 2. 底面の端
+    points.push(new THREE.Vector2(r, 0));
+    // 3. 胴体の終わり
+    points.push(new THREE.Vector2(r, bodyHeight));
+
+    // 4. 上部の丸み
+    for (let i = 0; i <= segments; i++) {
+        const theta = (i / segments) * (Math.PI / 2);
+        const x = domeRadius * Math.cos(theta);
+        const y = bodyHeight + (domeRadius * Math.sin(theta));
+        points.push(new THREE.Vector2(x, y));
+    }
+
+    const geometry = new THREE.LatheGeometry(points, 32);
+
+    // --- テクスチャ（顔）の適用 ---
+    // そのプレイヤーの色情報を取得してテクスチャを作る
+    const baseColor = new THREE.Color(COLORS[owner]); 
+    // cssスタイルの文字列(#RRGGBB)に変換して渡す
+    const texture = createFaceTexture('#' + baseColor.getHexString());
+
+    // 重要: テクスチャを使う場合、colorは白(0xffffff)にしておかないと色が混ざって暗くなります
+    const material = new THREE.MeshStandardMaterial({ 
+        map: texture,
+        color: 0xffffff, 
+        roughness: 0.4
+    });
+
     const mesh = new THREE.Mesh(geometry, material);
     mesh.castShadow = true;
+
+    // --- 向きの調整 ---
+    // LatheGeometryのテクスチャの継ぎ目は通常背面にきますが、
+    // カメラ位置に合わせて顔が手前に来るよう回転させます
+    mesh.rotation.y = -Math.PI / 2; 
+
     return mesh;
 }
 
@@ -354,11 +527,7 @@ function render(stateObj) {
                     const p = stack[i]; 
                     const pieceMesh = createPieceMesh(p.size, p.owner);
 
-                    // ★修正ポイント: 常に盤面の床上(0.1)を基準に配置する
-                    // Cylinderの中心Y座標 = (高さ / 2) + 盤面の高さオフセット(0.1)
-                    const y = pieceMesh.geometry.parameters.height / 2 + 0.1;
-                    
-                    pieceMesh.position.set(x, y, z);
+                    pieceMesh.position.set(x, 0.1, z);
                     
                     pieceMesh.userData = { 
                         type: 'piece', 
@@ -407,6 +576,7 @@ function onCanvasClick(event) {
             if (data.type === 'piece' && data.isTop && data.owner === mySlot) {
                 selectedPiece = { from: { type: 'cell', r: data.r, c: data.c }, size: data.size };
                 highlightSelection(clickedObj); 
+                playSE('select');
                 addLog(`盤上駒選択: (${data.r},${data.c})`);
                 return;
             } else if (data.type === 'cell') {
@@ -428,6 +598,7 @@ function onCanvasClick(event) {
             socket.emit('place_piece', payload, (ack) => {
                 if (ack && ack.error) addLog('エラー: ' + ack.error);
             });
+            playSE('place');
             addLog(`手駒を送信: ${selectedPiece.size} -> (${targetR},${targetC})`);
             clearSelection();
             return;
@@ -449,6 +620,7 @@ function onCanvasClick(event) {
             socket.emit('place_piece', payload, (ack) => {
                 if (ack && ack.error) addLog('エラー: ' + ack.error);
             });
+            playSE('place');
             addLog(`盤上駒の移動を送信: (${selectedPiece.from.r},${selectedPiece.from.c}) -> (${targetR},${targetC})`);
             clearSelection();
             return;
@@ -463,7 +635,7 @@ function highlightSelection(meshToHighlight = null) {
         if (el) el.classList.add('selected');
     }
     if (selectedMesh) {
-        selectedMesh.material.color.set(COLORS[selectedMesh.userData.owner]);
+        selectedMesh.material.color.set(0xffffff);
         selectedMesh = null;
     }
     if (meshToHighlight) {
@@ -523,6 +695,7 @@ function renderHandDOM(){
         ev.stopPropagation();
         selectedPiece = { from: { type: 'hand'}, size };
         highlightSelection(null); 
+        playSE('select');
         addLog(`手駒選択: ${size}`);
       });
       handContainer.appendChild(wrapper);
@@ -617,7 +790,7 @@ if (toggleHighlightBtn) {
             toggleHighlightBtn.classList.remove('on');
             toggleHighlightBtn.textContent = 'OFF';
             if (selectedMesh) {
-                selectedMesh.material.color.set(COLORS[selectedMesh.userData.owner]);
+                selectedMesh.material.color.set(0xffffff);
                 selectedMesh = null;
                 renderer.render(scene, camera);
             }
@@ -639,11 +812,13 @@ function showResult(winner) {
         resultTitle.textContent = "YOU WIN!";
         resultMessage.textContent = "おめでとうございます！";
         fireConfetti(); // 紙吹雪発射！
+        playSE('win');
     } else {
         // 負け
         resultTitle.textContent = "YOU LOSE...";
         resultMessage.textContent = "ドンマイ！次は勝てます！";
         resultContent.classList.add('lose'); 
+        playSE('lose');
     }
 }
 
