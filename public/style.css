@@ -316,7 +316,50 @@ main{ display:flex; gap:16px; margin-top:12px; }
 .secondary-btn:hover {
   text-decoration: underline;
 }
+/* style.css 修正版 */
 
+.cutin-overlay {
+   position: fixed; /* absolute から fixed に変更して画面全体を覆う */
+   top: 0;
+   left: 0;
+   width: 100%;
+   height: 100%; /* 高さを指定しないと表示領域が0になります */
+   display: flex;
+   justify-content: center;
+   align-items: center;
+   background: rgba(0,0,0,0.2);
+   z-index: 1000;
+   pointer-events: none;
+   transition: opacity 0.4s;
+}
+
+.cutin-content {
+  background: white;
+  padding: 30px 60px;
+  border-radius: 12px; /* 角丸を追加して見栄えを良くする */
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2); /* 影の調整 */
+  transform: scale(0);
+  /* 修正: カンマ(,)の打ち間違いを修正 (0,885 -> 0.885 など) */
+  animation: cutinPop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.cutin-content h2 {
+   margin: 0;
+   font-size: 2.5rem;
+   font-weight: 900;
+   white-space: nowrap;
+}
+
+/* アニメーション定義の修正は不要ですが、念のため確認 */
+@keyframes cutinPop {
+   0% { transform: scale(0.5); opacity: 0; }
+   100% { transform: scale(1); opacity: 1; }
+}
+
+/* 既存の .hidden クラスを使用するため、ここは変更なしでOK */
+.hidden {
+   display: none !important;
+}
 @keyframes popIn {
   from { transform: scale(0.8); opacity: 0; }
   to { transform: scale(1); opacity: 1; }

@@ -143,7 +143,7 @@ io.on("connection", (socket) => {
     // 5. ゲーム開始判定
     if (roomState.players.A && roomState.players.B) {
       if (!roomState.started && !roomState.winner) {
-          roomState.currentTurn = "A";
+          roomState.currentTurn =Math.random() < 0.5 ? "A" : "B";
           roomState.started = true;
       }
       io.to(roomID).emit("start_game", sanitizeState(roomState));
@@ -282,7 +282,7 @@ io.on("connection", (socket) => {
       roomState.board = [[[],[],[]],[[],[],[]],[[],[],[]]];
       if(roomState.players.A) roomState.players.A.pieces = { small:2, medium:2, large:2 };
       if(roomState.players.B) roomState.players.B.pieces = { small:2, medium:2, large:2 };
-      roomState.currentTurn = "A";
+      roomState.currentTurn = Math.random() < 0.5 ? "A" : "B";
       roomState.winner = null;
       roomState.started = !!(roomState.players.A && roomState.players.B);
 
