@@ -3,6 +3,13 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import confetti from 'canvas-confetti'; 
 
+
+const isMobile = window.innerWidth <= 768;
+
+const BOARD_SIZE = isMobile
+  ? Math.min(window.innerWidth * 0.92, 320)
+  : 420;
+
 // --- Socket.IO 接続 ---
 const socket = io();
 
@@ -200,7 +207,7 @@ function initThree() {
 
     // レンダラー
     renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(boardWrap.clientWidth, 500);
+    
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap; // 柔らかい影
     boardWrap.innerHTML = '';
@@ -224,6 +231,13 @@ function initThree() {
     window.addEventListener('resize', onWindowResize);
 
     animate();
+
+    if (isMobile && controls) {
+    controls.enableRotate = false;
+    controls.enableZoom = false;
+    controls.enablePan = false;
+}
+
 }
 
 function animate() {
@@ -924,13 +938,18 @@ function clearSelection() {
 }
 
 function onWindowResize() {
-    if (boardWrap.clientWidth === 0) return;
+    if (!renderer) return;
 
-    const width = boardWrap.clientWidth;
-    const height = 500; 
-    camera.aspect = width / height;
+    const size = isMobile
+      ? Math.min(window.innerWidth * 0.92, 320)
+      : 420;
+
+    boardWrap.style.width = size + "px";
+    boardWrap.style.height = size + "px";
+
+    camera.aspect = 1;
     camera.updateProjectionMatrix();
-    renderer.setSize(width, height);
+    renderer.setSize(size, size);
 }
 
 
