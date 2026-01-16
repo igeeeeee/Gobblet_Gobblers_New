@@ -1208,8 +1208,10 @@ socket.on('start_game', (s) => {
   render(s);
 
    // --- カットイン表示処理 ---
-   
-  if(mySlot) {
+   if (!mySlot || mySlot === 'spectator') {
+    return; 
+  }
+  //if(mySlot) {
    turnCutIn.classList.remove('hidden');
    if(s.currentTurn === mySlot) {
     cutinText.textContent = "あなたが【先攻】です！";
@@ -1225,7 +1227,7 @@ socket.on('start_game', (s) => {
    setTimeout(() => {
      turnCutIn.classList.add('hidden');
    }, 2000);
- }
+ //}
 });
 socket.on('update_state', (s) => {
   render(s); 

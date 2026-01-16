@@ -145,8 +145,13 @@ io.on("connection", (socket) => {
       if (!roomState.started && !roomState.winner) {
           roomState.currentTurn =Math.random() < 0.5 ? "A" : "B";
           roomState.started = true;
+          io.to(roomID).emit("start_game", sanitizeState(roomState));
       }
-      io.to(roomID).emit("start_game", sanitizeState(roomState));
+      else {
+        // ★修正: すでに開始済みの場合（観戦者などの途中参加）
+        // 入室した本人だけに現状を送る（既存プレイヤーの画面には影響させない）
+        socket.emit("start_game", sanitizeState(roomState));
+      }
     } else {
       io.to(roomID).emit("update_state", sanitizeState(roomState));
     }
