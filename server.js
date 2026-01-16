@@ -143,10 +143,15 @@ io.on("connection", (socket) => {
     // 5. ゲーム開始判定
     if (roomState.players.Blue && roomState.players.Orange) {
       if (!roomState.started && !roomState.winner) {
-          roomState.currentTurn = "Blue";
+          roomState.currentTurn =Math.random() < 0.5 ? "Blue" : "Orenge";
           roomState.started = true;
+          io.to(roomID).emit("start_game", sanitizeState(roomState));
       }
-      io.to(roomID).emit("start_game", sanitizeState(roomState));
+      else {
+        // ★修正: すでに開始済みの場合（観戦者などの途中参加）
+        // 入室した本人だけに現状を送る（既存プレイヤーの画面には影響させない）
+        socket.emit("start_game", sanitizeState(roomState));
+      }
     } else {
       io.to(roomID).emit("update_state", sanitizeState(roomState));
     }
@@ -281,8 +286,8 @@ io.on("connection", (socket) => {
       // 状態リセット
       roomState.board = [[[],[],[]],[[],[],[]],[[],[],[]]];
       if(roomState.players.Blue) roomState.players.Blue.pieces = { small:2, medium:2, large:2 };
-      if(roomState.players.Orange) roomState.players.Orange.pieces = { small:2, medium:2, large:2 };
-      roomState.currentTurn = "Blue";
+      if(roomState.players.Orenge) roomState.players.Orenge.pieces = { small:2, medium:2, large:2 };
+      roomState.currentTurn = Math.random() < 0.5 ? "Blue" : "Orenge";
       roomState.winner = null;
       roomState.started = !!(roomState.players.Blue && roomState.players.Orange);
 
