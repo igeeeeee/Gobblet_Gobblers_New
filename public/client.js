@@ -3,6 +3,13 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import confetti from 'canvas-confetti'; 
 
+
+const isMobile = window.innerWidth <= 768;
+
+const BOARD_SIZE = isMobile
+  ? Math.min(window.innerWidth * 0.92, 320)
+  : 420;
+
 // --- Socket.IO 接続 ---
 const socket = io();
 
@@ -57,13 +64,13 @@ let selectedPiece = null;
 let currentRoomID = null; 
 
 let handMeshes = []; 
-const HAND_Z_A = 9;   
-const HAND_Z_B = -9;  
+const HAND_Z_Blue = 9;   
+const HAND_Z_Orange = -9;  
 const HAND_X_START = -7.0; // 広げるために左へずらす
 const HAND_X_GAP = 2.5;    // 間隔を広げる
 let lastSelectedHandX = 0; // 追加: アニメーション開始位置の記憶用
 // --- 修正: 手駒スロット管理用の変数 ---
-const handSlots = { A: [], B: [] }; // スロット情報 { mesh, size, active, slotId } を格納
+const handSlots = { Blue: [], Orange: [] }; // スロット情報 { mesh, size, active, slotId } を格納
 let isHandInitialized = false;      // 初期化フラグ
 let lastPlayedSlotId = null;        // 最後に操作した手駒のID（どの場所を消すか判定用）
 // --- 音声管理 ---
@@ -162,8 +169,8 @@ const cellObjects = [];
 let selectedMesh = null; 
 
 const COLORS = {
-    A: 0x1f78b4,
-    B: 0xef6c00,
+    Blue: 0x1f78b4,
+    Orange: 0xef6c00,
     board: 0xffffff,
     selected: 0xfacc15 
 };
@@ -201,7 +208,7 @@ function initThree() {
 
     // レンダラー
     renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(boardWrap.clientWidth, 500);
+    
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap; // 柔らかい影
     boardWrap.innerHTML = '';
@@ -225,6 +232,13 @@ function initThree() {
     window.addEventListener('resize', onWindowResize);
 
     animate();
+
+    if (isMobile && controls) {
+    controls.enableRotate = false;
+    controls.enableZoom = false;
+    controls.enablePan = false;
+}
+
 }
 
 function animate() {
@@ -537,7 +551,7 @@ function createPieceMesh(size, owner) {
 
     const mesh = new THREE.Mesh(geometry, material);
     mesh.castShadow = true;
-    if (owner === 'A') {
+    if (owner === 'Blue') {
         mesh.rotation.y = 0; // 奥を向く（テクスチャの貼り方次第で Math.PI か 0 か調整してください）
     } else {
         mesh.rotation.y = Math.PI; // 手前を向く
@@ -549,8 +563,8 @@ function createPieceMesh(size, owner) {
 function initHandSlots() {
     if (isHandInitialized) return;
 
-    ['A', 'B'].forEach(owner => {
-        const z = (owner === 'A') ? HAND_Z_A : HAND_Z_B;
+    ['Blue', 'Orange'].forEach(owner => {
+        const z = (owner === 'Blue') ? HAND_Z_Blue : HAND_Z_Orange;
         let x = HAND_X_START;
 
         // 固定順序: 大, 大, 中, 中, 小, 小
@@ -672,7 +686,7 @@ function render(stateObj) {
     }
 
     // 2. 既存メッシュのプールを作成（再利用のため）
-    const pool = { 'A-small': [], 'A-medium': [], 'A-large': [], 'B-small': [], 'B-medium': [], 'B-large': [] };
+    const pool = { 'Blue-small': [], 'Blue-medium': [], 'Blue-large': [], 'Orange-small': [], 'Orange-medium': [], 'Orange-large': [] };
     
     pieceMeshes.forEach(mesh => {
         const key = `${mesh.userData.owner}-${mesh.userData.size}`;
@@ -748,7 +762,7 @@ function render(stateObj) {
             
             // 出現位置の決定
             let startX = pData.targetX; 
-            const startZ = (pData.owner === 'A') ? HAND_Z_A : HAND_Z_B;
+            const startZ = (pData.owner === 'Blue') ? HAND_Z_Blue : HAND_Z_Orange;
 
             if (pData.owner === mySlot && lastSelectedHandX !== 0) {
                 // 自分の手駒から
@@ -925,13 +939,18 @@ function clearSelection() {
 }
 
 function onWindowResize() {
-    if (boardWrap.clientWidth === 0) return;
+    if (!renderer) return;
 
-    const width = boardWrap.clientWidth;
-    const height = 500; 
-    camera.aspect = width / height;
+    const size = isMobile
+      ? Math.min(window.innerWidth * 0.92, 320)
+      : 420;
+
+    boardWrap.style.width = size + "px";
+    boardWrap.style.height = size + "px";
+
+    camera.aspect = 1;
     camera.updateProjectionMatrix();
-    renderer.setSize(width, height);
+    renderer.setSize(size, size);
 }
 
 
@@ -956,7 +975,7 @@ function renderHands3D(players) {
 
     if (!players) return;
 
-    ['A', 'B'].forEach(owner => {
+    ['Blue', 'Orange'].forEach(owner => {
         const pData = players[owner];
         if (!pData) return;
 
@@ -1190,7 +1209,7 @@ socket.on('assign', (d) => {
         addLog(`(System) Role Assigned: ${d.slot}`);
         
         // ★追加: Player Bならカメラを反対側に移動
-        if (mySlot === 'B') {
+        if (mySlot === 'Orange') {
             camera.position.set(0, 15, -18); // Zをマイナスに
             camera.lookAt(0, 0, 0);
         } else {
