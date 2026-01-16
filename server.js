@@ -143,7 +143,7 @@ io.on("connection", (socket) => {
     // 5. ゲーム開始判定
     if (roomState.players.Blue && roomState.players.Orange) {
       if (!roomState.started && !roomState.winner) {
-          roomState.currentTurn =Math.random() < 0.5 ? "Blue" : "Orenge";
+          roomState.currentTurn =Math.random() < 0.5 ? "Blue" : "Orange";
           roomState.started = true;
           io.to(roomID).emit("start_game", sanitizeState(roomState));
       }
@@ -286,8 +286,8 @@ io.on("connection", (socket) => {
       // 状態リセット
       roomState.board = [[[],[],[]],[[],[],[]],[[],[],[]]];
       if(roomState.players.Blue) roomState.players.Blue.pieces = { small:2, medium:2, large:2 };
-      if(roomState.players.Orenge) roomState.players.Orenge.pieces = { small:2, medium:2, large:2 };
-      roomState.currentTurn = Math.random() < 0.5 ? "Blue" : "Orenge";
+      if(roomState.players.Orange) roomState.players.Orange.pieces = { small:2, medium:2, large:2 };
+      roomState.currentTurn = Math.random() < 0.5 ? "Blue" : "Orange";
       roomState.winner = null;
       roomState.started = !!(roomState.players.Blue && roomState.players.Orange);
 
