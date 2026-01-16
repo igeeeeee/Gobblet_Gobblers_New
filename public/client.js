@@ -30,7 +30,8 @@ const currentRoomLabel = document.getElementById('currentRoomLabel');
 const gameNameInput = document.getElementById('nameInput');
 const boardWrap = document.querySelector('.board-wrap');
 const handContainer = document.getElementById('handContainer');
-
+const turnCutIn = document.getElementById('turnCutIn');
+const cutinText = document.getElementById('cutinText');
 // モーダルUI用の要素
 const settingsBtn = document.getElementById('settingsBtn');
 const modalOverlay = document.getElementById('modalOverlay');
@@ -1224,6 +1225,28 @@ socket.on('start_game', (s) => {
   addLog('ゲーム開始！');
   clearSelection();
   render(s);
+
+   // --- カットイン表示処理 ---
+   if (!mySlot || mySlot === 'spectator') {
+    return; 
+  }
+  //if(mySlot) {
+   turnCutIn.classList.remove('hidden');
+   if(s.currentTurn === mySlot) {
+    cutinText.textContent = "あなたが【先攻】です！";
+    cutinText.style.color = "#ff4757"; // 先攻の色
+    turnCutIn.querySelector('.cutin-content').style.borderColor = "#ff4757";
+   } else {
+    cutinText.textContent = "あなたは【後攻】です";
+    cutinText.style.color = "#2ed573"; // 後攻の色
+    turnCutIn.querySelector('.cutin-content').style.borderColor = "#2ed573";
+   }
+
+   // 2秒後に自動で消す
+   setTimeout(() => {
+     turnCutIn.classList.add('hidden');
+   }, 2000);
+ //}
 });
 socket.on('update_state', (s) => {
   render(s); 

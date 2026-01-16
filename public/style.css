@@ -366,7 +366,51 @@ main{ display:flex; gap:16px; margin-top:12px; }
 .secondary-btn:hover {
   text-decoration: underline;
 }
+/* style.css 修正版 */
 
+.cutin-overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.1);
+  z-index: 2000;
+  pointer-events: none;
+}
+
+.cutin-content {
+  background: #fff;
+  padding: 20px 80px;
+  border-radius: 50px; /* 丸みを帯びさせる */
+  border: 8px solid; /* 色はJSの文字色に合わせるために currentColor を使う手もあり */
+  box-shadow: 
+    0 20px 0 rgba(0,0,0,0.1), /* 厚み */
+    0 30px 20px rgba(0,0,0,0.2); /* 影 */
+  transform: scale(0);
+  animation: stampIn 0.9s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+}
+
+.cutin-content h2 {
+  margin: 0;
+  font-size: 3.5rem;
+  font-weight: 900;
+  /* 文字の縁取り（ストローク）をつけるとポップになります */
+  -webkit-text-stroke: 2px #fff; 
+  paint-order: stroke fill;
+}
+
+@keyframes stampIn {
+  0% { transform: scale(3); opacity: 0; }
+  60% { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* 既存の .hidden クラスを使用するため、ここは変更なしでOK */
+.hidden {
+   display: none !important;
+}
 @keyframes popIn {
   from { transform: scale(0.8); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
