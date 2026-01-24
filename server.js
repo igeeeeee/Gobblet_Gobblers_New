@@ -236,6 +236,8 @@ io.on("connection", (socket) => {
           io.to(roomID).emit("start_game", sanitizeState(roomState));
       }
       else {
+        // ★修正: すでに開始済みの場合（観戦者などの途中参加）
+        // 入室した本人だけに現状を送る（既存プレイヤーの画面には影響させない）
         socket.emit("start_game", sanitizeState(roomState));
       }
     } else {
