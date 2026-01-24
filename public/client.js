@@ -267,9 +267,9 @@ function launchFlyingComment(text) {
 }
 
 function randomColor() {
-  const r = Math.floor(Math.random() * 200 + 55); 
-  const g = Math.floor(Math.random() * 200 + 55);
-  const b = Math.floor(Math.random() * 200 + 55);
+  const r = Math.floor(Math.random() * 150 + 55); 
+  const g = Math.floor(Math.random() * 150 + 55);
+  const b = Math.floor(Math.random() * 150 + 55);
   return `rgb(${r},${g},${b})`;
 }
 
