@@ -265,14 +265,14 @@ io.on("connection", (socket) => {
     if (currentRole !== "Blue" && currentRole !== "Orange") return ack({ error: "spectator" });
     if (!roomState.started) return ack({ error: "not_started" });
     if (roomState.winner) return ack({ error: "game_over" });
-    if (roomState.currentTurn !== currentRole) return ack({ error: "not_your_turn" });
+    if (roomState.currentTurn !== currentRole) return ack({ error: "あなたのターンではありません" });
 
     try {
         if (payload.action === "place_from_hand") {
             const { size, to } = payload;
             const player = roomState.players[currentRole];
             if (player.pieces[size] <= 0) throw new Error("no piece");
-            if (!canPlaceAt(roomState.board, to.r, to.c, size)) throw new Error("illegal");
+            if (!canPlaceAt(roomState.board, to.r, to.c, size)) throw new Error("その場所に駒は置けません");
             
             roomState.board[to.r][to.c].push({ owner: currentRole, size, color: player.color });
             player.pieces[size]--;
@@ -283,7 +283,7 @@ io.on("connection", (socket) => {
             if (!srcStack.length) throw new Error("empty");
             const top = srcStack.at(-1);
             if (top.owner !== currentRole) throw new Error("not yours");
-            if (!canPlaceAt(roomState.board, to.r, to.c, top.size)) throw new Error("illegal");
+            if (!canPlaceAt(roomState.board, to.r, to.c, top.size)) throw new Error("その場所に駒は置けませんl");
 
             srcStack.pop();
             let winner = checkWinner(roomState.board);
