@@ -29,7 +29,12 @@
 
     <main>
       <section class="board-wrap"></section>
-
+        <div id="turnCutIn" class="cutin-overlay hidden">
+          <div class="cutin-content">
+          <h2 id="cutinText"></h2>
+          </div>
+        </div>
+        
       <div id="cheerLayer"></div>
 
 
@@ -89,7 +94,6 @@
 
         <div id="tab-control" class="tab-pane">
           <p>対戦中の操作</p>
-          <button id="modalRestartBtn" class="action-btn">この対戦をやり直す</button>
           <button id="modalLeaveBtn" class="action-btn danger">退出する</button>
         </div>
 
@@ -111,10 +115,19 @@
   <div class="result-content">
     <h1 id="resultTitle">WIN!</h1>
     <p id="resultMessage">おめでとうございます！</p>
-    <div class="result-actions">
-      <button id="resultRestartBtn" class="action-btn">もう一度遊ぶ</button>
-      <button id="resultCloseBtn" class="secondary-btn">閉じる</button>
+    
+    <div id="playerActions" class="result-actions">
+      <button id="btnRematch" class="result-btn btn-rematch">再戦する</button>
+      <button id="btnSpectate" class="result-btn btn-spectate">観戦に回る</button>
+      <button id="btnLeave" class="result-btn btn-leave">部屋を抜ける</button>
     </div>
+    
+    <div id="spectatorActions" class="result-actions hidden">
+        <button id="resultCloseBtn" class="result-btn secondary-btn">閉じる</button>
+    </div>
+
+    <div id="resultWaitMsg" class="result-wait-msg hidden">相手の選択を待っています...</div>
+
   </div>
 </div>
 
