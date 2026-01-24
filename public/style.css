@@ -635,3 +635,82 @@ main{ display:flex; gap:16px; margin-top:12px; }
     display: none;
   }
 }
+/* ===== スマホ：縦並びOK、中央寄せ＆崩れ防止 ===== */
+@media (max-width: 768px) {
+
+  /* mainは縦並びのままでOK */
+  main{
+    display: flex;
+    flex-direction: column;
+    align-items: center;   /* ★これで中央寄せになる */
+    gap: 8px;
+  }
+
+  /* 右パネル(aside)を中央に置く */
+  aside.panel{
+    width: 100%;
+    max-width: 520px;      /* ★デカすぎ防止（好みで調整OK） */
+    margin: 0 auto;
+  }
+
+  /* パネル内の各ブロックも幅100% */
+  aside.panel .status,
+  aside.panel .hand,
+  aside.panel .chat-box{
+    width: 100%;
+  }
+
+  /* ボタンを揃える（左寄り対策） */
+  
+
+  /* 手駒が左に寄る原因になりやすいので中央基準にする */
+  .hand-row{
+    transform-origin: center top;
+  }
+}
+@media (max-width: 768px) {
+
+  /* パネル自体がはみ出さないようにする */
+  aside.panel{
+    box-sizing: border-box;
+    overflow-x: hidden;
+  }
+
+  /* ステータスを1列にしてはみ出し防止 */
+  .status{
+    display: grid;
+    gap: 6px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+}
+@media (max-width: 768px) {
+
+  .chat-input-row{
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .chat-box{
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .chat-input-row input{
+    flex: 1;
+    min-width: 0;          /* ★これ超重要（押し出し防止） */
+    box-sizing: border-box;
+  }
+
+  #chatSendBtn{
+    width: auto;
+    flex: 0 0 auto;        /* ★縮まない＆押し出されない */
+    padding: 10px 12px;    /* 少しだけ細くする */
+    white-space: nowrap;
+  }
+}
+
