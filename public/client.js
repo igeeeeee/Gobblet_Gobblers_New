@@ -38,22 +38,27 @@ const modalOverlay = document.getElementById('modalOverlay');
 const closeModalBtn = document.getElementById('closeModalBtn');
 const tabButtons = document.querySelectorAll('.tab-btn');
 const tabPanes = document.querySelectorAll('.tab-pane');
-const modalRestartBtn = document.getElementById('modalRestartBtn');
 const modalLeaveBtn = document.getElementById('modalLeaveBtn');
 const toggleHighlightBtn = document.getElementById('toggleHighlightBtn');
 
 // ホーム画面用ボタンの参照
 const homeSettingsBtn = document.getElementById('homeSettingsBtn'); 
 const gameActionsTab = document.querySelector('.tab-btn[data-tab="tab-control"]'); 
-const gameActionsPane = document.getElementById('tab-control'); 
 
 // リザルトUIの要素
 const resultOverlay = document.getElementById('resultOverlay');
 const resultTitle = document.getElementById('resultTitle');
 const resultMessage = document.getElementById('resultMessage');
 const resultContent = document.querySelector('.result-content');
-const resultRestartBtn = document.getElementById('resultRestartBtn');
+
+// リザルト画面のアクション要素
+const playerActions = document.getElementById('playerActions');
+const spectatorActions = document.getElementById('spectatorActions');
+const btnRematch = document.getElementById('btnRematch');
+const btnSpectate = document.getElementById('btnSpectate');
+const btnLeave = document.getElementById('btnLeave');
 const resultCloseBtn = document.getElementById('resultCloseBtn');
+const resultWaitMsg = document.getElementById('resultWaitMsg');
 
 
 // グローバル変数
@@ -69,7 +74,7 @@ const HAND_Z_Orange = -9;
 const HAND_X_START = -7.0; // 広げるために左へずらす
 const HAND_X_GAP = 2.5;    // 間隔を広げる
 let lastSelectedHandX = 0; // 追加: アニメーション開始位置の記憶用
-// --- 修正: 手駒スロット管理用の変数 ---
+// --- 手駒スロット管理用の変数 ---
 const handSlots = { Blue: [], Orange: [] }; // スロット情報 { mesh, size, active, slotId } を格納
 let isHandInitialized = false;      // 初期化フラグ
 let lastPlayedSlotId = null;        // 最後に操作した手駒のID（どの場所を消すか判定用）
@@ -244,6 +249,25 @@ function animate() {
     if (controls) controls.update(); 
     renderer.render(scene, camera);
 }
+const errorPopup = document.getElementById("errorPopup");
+const errorPopupText = document.getElementById("errorPopupText");
+
+function showPopup(msg) {
+  if (!errorPopup || !errorPopupText) return;
+
+  errorPopup.classList.remove("hidden");
+  errorPopupText.textContent = msg;
+
+  // エラーっぽい色にする
+  errorPopupText.style.color = "#ff4757";
+  errorPopup.querySelector(".cutin-content").style.borderColor = "#ff4757";
+
+  setTimeout(() => {
+    errorPopup.classList.add("hidden");
+  }, 2000);
+}
+
+
 
 
  // --- チャットメッセージ処理 ---
@@ -262,9 +286,9 @@ function launchFlyingComment(text) {
 }
 
 function randomColor() {
-  const r = Math.floor(Math.random() * 200 + 55); 
-  const g = Math.floor(Math.random() * 200 + 55);
-  const b = Math.floor(Math.random() * 200 + 55);
+  const r = Math.floor(Math.random() * 150 + 55); 
+  const g = Math.floor(Math.random() * 150 + 55);
+  const b = Math.floor(Math.random() * 150 + 55);
   return `rgb(${r},${g},${b})`;
 }
 
@@ -318,38 +342,36 @@ socket.on("chat_init", (log) => {
 
 
 // --- 3D盤面の構築 ---
-// --- 3D盤面の構築（テーブル追加版） ---
 function buildBoard3D() {
     boardGroup = new THREE.Group();
 
     // 1. 木のテーブルを作成
-    const tableGeo = new THREE.BoxGeometry(50, 2, 50); // かなり大きくする
+    const tableGeo = new THREE.BoxGeometry(50, 2, 50); 
     const woodTexture = createWoodTexture();
     const tableMat = new THREE.MeshStandardMaterial({ 
         map: woodTexture,
         roughness: 0.8,
-        color: 0xdddddd // テクスチャの色を少し落ち着かせる
+        color: 0xdddddd 
     });
     const tableMesh = new THREE.Mesh(tableGeo, tableMat);
-    tableMesh.position.set(0, -1.2, 0); // 盤面の少し下に配置
-    tableMesh.receiveShadow = true;     // 影を受ける
-    scene.add(tableMesh); // boardGroupではなくsceneに直接追加（回転させないため）
+    tableMesh.position.set(0, -1.2, 0); 
+    tableMesh.receiveShadow = true;     
+    scene.add(tableMesh); 
 
 
     // 2. ゲームボード（枠内）
-    // 少し浮かせてテーブルの上に置く
     const boardGeo = new THREE.BoxGeometry(CELL_GAP * 3 + 0.5, 0.2, CELL_GAP * 3 + 0.5);
     const boardMat = new THREE.MeshStandardMaterial({ 
         color: 0xffffff,
         transparent: true,
-        opacity: 0.8 // 少し透けさせて馴染ませる
+        opacity: 0.8 
     });
     const boardMesh = new THREE.Mesh(boardGeo, boardMat);
-    boardMesh.position.y = -0.15; // 格子の少し下
+    boardMesh.position.y = -0.15; 
     boardMesh.receiveShadow = true;
     boardGroup.add(boardMesh);
 
-    // 3. 格子ライン (白くて太い線にしてポップに)
+    // 3. 格子ライン 
     const lineColor = new THREE.Color(0xffffff);
     const lineMaterial = new THREE.MeshStandardMaterial({ 
         color: lineColor,
@@ -388,7 +410,6 @@ function buildBoard3D() {
     for (let r = 0; r < 3; r++) {
         for (let c = 0; c < 3; c++) {
             const cell = new THREE.Mesh(cellGeo, cellMat);
-            // Y位置を調整してクリック判定をしやすくする
             cell.position.set(c * CELL_GAP + BOARD_OFFSET, 0.2, r * CELL_GAP + BOARD_OFFSET);
             cell.userData = { type: 'cell', r, c }; 
             boardGroup.add(cell);
@@ -467,36 +488,32 @@ function createWoodTexture() {
     canvas.height = size;
     const ctx = canvas.getContext('2d');
 
-    // 1. ベースの色（明るめの茶色）
+    // 1. ベースの色
     ctx.fillStyle = '#d4a76a';
     ctx.fillRect(0, 0, size, size);
 
-    // 2. 木目を描く（濃い茶色のゆらぎ線）
+    // 2. 木目を描く
     ctx.lineWidth = 3;
     ctx.lineCap = 'round';
     
-    // ランダムな木目模様
     for (let i = 0; i < 80; i++) {
-        // 線の色を微妙に変えて自然にする
         const alpha = 0.1 + Math.random() * 0.2;
         ctx.strokeStyle = `rgba(101, 67, 33, ${alpha})`; 
 
         ctx.beginPath();
-        // 始点
         let x = Math.random() * size;
         let y = -10;
         ctx.moveTo(x, y);
 
-        // 下に向かってゆらゆら線を引く
         while (y < size + 10) {
             y += Math.random() * 20 + 10;
-            x += (Math.random() - 0.5) * 10; // 左右に揺らす
+            x += (Math.random() - 0.5) * 10; 
             ctx.lineTo(x, y);
         }
         ctx.stroke();
     }
 
-    // 3. 全体にノイズを載せて質感アップ
+    // 3. 全体にノイズ
     const imageData = ctx.getImageData(0, 0, size, size);
     const data = imageData.data;
     for (let i = 0; i < data.length; i += 4) {
@@ -512,7 +529,6 @@ function createWoodTexture() {
     const texture = new THREE.CanvasTexture(canvas);
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.RepeatWrapping;
-    // テクスチャをリピートさせて密度を上げる
     texture.repeat.set(4, 4); 
     
     return texture;
@@ -550,9 +566,9 @@ function createPieceMesh(size, owner) {
     const mesh = new THREE.Mesh(geometry, material);
     mesh.castShadow = true;
     if (owner === 'Blue') {
-        mesh.rotation.y = 0; // 奥を向く（テクスチャの貼り方次第で Math.PI か 0 か調整してください）
+        mesh.rotation.y = 0; 
     } else {
-        mesh.rotation.y = Math.PI; // 手前を向く
+        mesh.rotation.y = Math.PI; 
     }
     return mesh;
 }
@@ -601,24 +617,20 @@ function initHandSlots() {
 }
 
 // --- アニメーション移動ヘルパー (GSAP) ---
-// --- アニメーション移動ヘルパー (GSAP) ---
 function animateJump(mesh, targetX, targetZ, onComplete) {
     // 現在位置
     const startX = mesh.position.x;
     const startZ = mesh.position.z;
     const dist = Math.sqrt((targetX - startX)**2 + (targetZ - startZ)**2);
     
-    // ★修正ポイント: 移動距離が短い場合でも、必ず地面(Y=0.1)に着地させる
     if (dist < 0.1) {
-        mesh.position.set(targetX, 0.1, targetZ); // ← これを追加！強制的に着地させる
+        mesh.position.set(targetX, 0.1, targetZ); 
         if(onComplete) onComplete();
         return;
     }
 
-    // ジャンプの高さ (距離に応じて高くする)
     const jumpHeight = Math.max(2, dist * 0.5);
 
-    // X, Z は直線移動
     if (typeof gsap !== 'undefined') {
         gsap.to(mesh.position, {
             duration: 0.6,
@@ -629,23 +641,21 @@ function animateJump(mesh, targetX, targetZ, onComplete) {
 
         const tl = gsap.timeline({
             onComplete: () => {
-                playSE('place'); // 着地音
+                playSE('place'); 
                 if (onComplete) onComplete();
             }
         });
 
-        // Y は放物線 (上がって下がる) + バウンド
         tl.to(mesh.position, {
             duration: 0.3,
             y: jumpHeight,
             ease: "power2.out"
         }).to(mesh.position, {
             duration: 0.3,
-            y: 0.1, // ここで着地
+            y: 0.1, 
             ease: "bounce.out" 
         });
     } else {
-        // GSAPがない場合のフォールバック
         mesh.position.set(targetX, 0.1, targetZ);
     }
 }
@@ -655,7 +665,12 @@ function render(stateObj) {
     state = stateObj;
     
     turnLabel.textContent = state.currentTurn || '—';
-    gameStateLabel.textContent = state.winner ? `終了: ${state.winner}` : (state.started ? '進行中' : '待機中');
+    // 待機中の表示を詳細に
+    if (!state.started && !state.winner) {
+        gameStateLabel.textContent = '待機中 (観戦者: ' + (state.spectatorCount || 0) + '人)';
+    } else {
+        gameStateLabel.textContent = state.winner ? `終了: ${state.winner}` : '進行中';
+    }
     meLabel.textContent = mySlot ? `${mySlot}` : '未割当';
 
     // 1. 今回必要な駒のリストを作成
@@ -693,7 +708,7 @@ function render(stateObj) {
 
     // --- 3. 次フレーム用のメッシュリスト ---
     const nextPieceMeshes = [];
-    const piecesToMoveOrCreate = []; // まだメッシュが決まっていない駒リスト
+    const piecesToMoveOrCreate = []; 
 
     // 【ステップA】 すでにその場所にある駒（動かない駒）を先に確保する
     neededPieces.forEach(pData => {
@@ -701,19 +716,16 @@ function render(stateObj) {
         let foundIndex = -1;
 
         if (pool[key] && pool[key].length > 0) {
-            // プールの中から「位置がほぼ同じ（動いていない）」メッシュを探す
             foundIndex = pool[key].findIndex(m => {
                 const distSq = (m.position.x - pData.targetX)**2 + (m.position.z - pData.targetZ)**2;
-                return distSq < 0.01; // 誤差許容範囲
+                return distSq < 0.01; 
             });
         }
 
         if (foundIndex !== -1) {
-            // 見つかった！ -> そのまま使う（キープ）
             const mesh = pool[key][foundIndex];
-            pool[key].splice(foundIndex, 1); // プールから削除（他に使わせない）
+            pool[key].splice(foundIndex, 1); 
 
-            // データの更新
             mesh.userData.r = pData.r;
             mesh.userData.c = pData.c;
             mesh.userData.isTop = pData.isTop;
@@ -721,11 +733,9 @@ function render(stateObj) {
             mesh.userData.size = pData.size;
             mesh.userData.type = 'piece';
 
-            // その場に固定（アニメーション関数を通すが距離0なので即座にセットされる）
             animateJump(mesh, pData.targetX, pData.targetZ);
             nextPieceMeshes.push(mesh);
         } else {
-            // その場にメッシュがない -> 「移動してきた」か「新しく置かれた」駒
             piecesToMoveOrCreate.push(pData);
         }
     });
@@ -735,7 +745,6 @@ function render(stateObj) {
         const key = `${pData.owner}-${pData.size}`;
         let mesh;
 
-        // 残っているプールから一番近いメッシュを探す
         let bestIndex = -1;
         let minDist = Infinity;
 
@@ -750,29 +759,24 @@ function render(stateObj) {
         }
 
         if (bestIndex !== -1) {
-            // 既存メッシュを再利用（これが本当の「移動」）
             mesh = pool[key][bestIndex];
             pool[key].splice(bestIndex, 1);
         } else {
-            // 新規作成（手駒から置かれた）
             mesh = createPieceMesh(pData.size, pData.owner);
             scene.add(mesh);
             
-            // 出現位置の決定
+            // 出現位置
             let startX = pData.targetX; 
             const startZ = (pData.owner === 'Blue') ? HAND_Z_Blue : HAND_Z_Orange;
 
             if (pData.owner === mySlot && lastSelectedHandX !== 0) {
-                // 自分の手駒から
                 startX = lastSelectedHandX;
             } else if (pData.owner !== mySlot) {
-                // 相手の手駒から（ランダム位置）
                 startX = (Math.random() - 0.5) * 8; 
             }
             mesh.position.set(startX, 0.1, startZ);
         }
 
-        // データの更新
         mesh.userData.r = pData.r;
         mesh.userData.c = pData.c;
         mesh.userData.isTop = pData.isTop;
@@ -780,13 +784,12 @@ function render(stateObj) {
         mesh.userData.size = pData.size;
         mesh.userData.type = 'piece';
 
-        // アニメーション実行
         animateJump(mesh, pData.targetX, pData.targetZ);
 
         nextPieceMeshes.push(mesh);
     });
 
-    // 4. 余ったメッシュ（取られた駒など）を削除
+    // 4. 余ったメッシュ（取られた駒、またはリセット時）を削除
     Object.values(pool).forEach(list => {
         list.forEach(mesh => {
             if (typeof gsap !== 'undefined') {
@@ -802,10 +805,18 @@ function render(stateObj) {
 
     pieceMeshes = nextPieceMeshes;
     renderHands3D(state.players);
+
+    // ★追加: 待機画面制御 (winnerなし, started=false の場合)
+    if (!state.started && !state.winner) {
+        // もしリザルト画面が出ていた場合、プレイヤーが変わったら閉じる
+        // ただし、自分がまだ結果画面を見ている場合はそのまま（次のゲーム開始時に消える）
+    }
 }
 
 function onCanvasClick(event) {
     if (!state.started && !state.winner) return;
+    // 観戦者は操作できない
+    if (mySlot === 'spectator') return;
 
     const rect = renderer.domElement.getBoundingClientRect();
     pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -813,13 +824,11 @@ function onCanvasClick(event) {
 
     raycaster.setFromCamera(pointer, camera);
 
-    // ★修正: 手駒(handMeshes)もクリック判定の対象に追加する
     const objectsToIntersect = [...cellObjects, ...pieceMeshes, ...handMeshes]; 
     
     const intersects = raycaster.intersectObjects(objectsToIntersect);
 
     if (intersects.length > 0) {
-        // 親メッシュまで遡る（構成部品をクリックした場合の対策）
         let clickedObj = intersects[0].object; 
         while(!clickedObj.userData.type && clickedObj.parent){
             clickedObj = clickedObj.parent;
@@ -836,7 +845,6 @@ function onCanvasClick(event) {
             }
             selectedPiece = { from: { type: 'hand' }, size: data.size };
             
-            // アニメーション用に座標を保存
             lastSelectedHandX = clickedObj.position.x;
 
             if (data.slotId !== undefined) {
@@ -884,7 +892,12 @@ function onCanvasClick(event) {
                 to: { r: targetR, c: targetC } 
             };
             socket.emit('place_piece', payload, (ack) => {
-                if (ack && ack.error) addLog('エラー: ' + ack.error);
+                if (ack && ack.error) {
+                    showPopup(ack.error);
+                    addLog('エラー: ' + ack.error);
+                    return;
+                }
+                clearSelection();
             });
             addLog(`手駒を送信: ${selectedPiece.size} -> (${targetR},${targetC})`);
             clearSelection();
@@ -905,7 +918,12 @@ function onCanvasClick(event) {
                 to: { r: targetR, c: targetC } 
             };
             socket.emit('place_piece', payload, (ack) => {
-                if (ack && ack.error) addLog('エラー: ' + ack.error);
+                if (ack && ack.error) {
+                    showPopup(ack.error);
+                    addLog('エラー: ' + ack.error);
+                    return;
+                }
+                clearSelection();
             });
             addLog(`盤上駒の移動を送信: (${selectedPiece.from.r},${selectedPiece.from.c}) -> (${targetR},${targetC})`);
             clearSelection();
@@ -921,7 +939,7 @@ function highlightSelection(meshToHighlight = null) {
         if (el) el.classList.add('selected');
     }
     if (selectedMesh) {
-        selectedMesh.material.color.set(0xffffff); // 元に戻す（白=テクスチャそのまま）
+        selectedMesh.material.color.set(0xffffff); 
         selectedMesh = null;
     }
     if (meshToHighlight) {
@@ -962,65 +980,49 @@ function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;',
 
 function renderHandDOM() {
     handContainer.innerHTML = ''; 
-    // ヒントテキストなどは残してもいいが、今回は3Dで完結させる
 }
 
 // 3D手駒を描画・管理する関数
-// 3D手駒を描画・管理する関数（スロット制御版）
 function renderHands3D(players) {
-    // まだ初期化してなければ作成
     if (!isHandInitialized) initHandSlots();
 
     if (!players) return;
 
     ['Blue', 'Orange'].forEach(owner => {
         const pData = players[owner];
-        if (!pData) return;
+        // プレイヤーがいない場合、その手駒はすべて非表示にする
+        if (!pData) {
+            handSlots[owner].forEach(s => s.mesh.visible = false);
+            return;
+        }
 
-        // サイズごとに同期処理
         ['large', 'medium', 'small'].forEach(size => {
             const serverCount = pData.pieces[size] || 0;
-            
-            // このサイズに該当するスロットを取得
             const slots = handSlots[owner].filter(s => s.size === size);
-            
-            // 現在表示されているスロットを取得
             const visibleSlots = slots.filter(s => s.mesh.visible);
-            
             const diff = visibleSlots.length - serverCount;
 
             if (diff > 0) {
-                // 表示が多すぎる＝駒を使ったので、diff個だけ消す
-                // ★ここがポイント: 「最後にクリックした場所」を優先して消す
-                
                 let hiddenCount = 0;
-                
-                // 1. 自分が操作した駒があればそれを消す
                 if (owner === mySlot && lastPlayedSlotId !== null) {
                     const target = visibleSlots.find(s => s.slotId === lastPlayedSlotId);
                     if (target) {
                         target.mesh.visible = false;
                         hiddenCount++;
-                        lastPlayedSlotId = null; // 使い終わったらリセット
+                        lastPlayedSlotId = null; 
                     }
                 }
-
-                // 2. まだ消す必要があれば、右側（IDが大きい方）から順に消す（相手の動きなど）
-                // ※配列を逆順にしてvisibleなものを消していく
                 for (let i = visibleSlots.length - 1; i >= 0; i--) {
                     if (hiddenCount >= diff) break;
-                    if (visibleSlots[i].mesh.visible) { // まだ消えてなければ
+                    if (visibleSlots[i].mesh.visible) { 
                         visibleSlots[i].mesh.visible = false;
                         hiddenCount++;
                     }
                 }
 
             } else if (diff < 0) {
-                // 表示が足りない＝リセットなどで駒が戻ってきた
-                // 左側（IDが小さい方）から順に復活させる
                 let showCount = 0;
-                const needed = -diff; // 正の値に
-                
+                const needed = -diff; 
                 for (let i = 0; i < slots.length; i++) {
                     if (showCount >= needed) break;
                     if (!slots[i].mesh.visible) {
@@ -1029,23 +1031,8 @@ function renderHands3D(players) {
                     }
                 }
             }
-            
-            // 選択状態のハイライト更新
-            if (selectedPiece && selectedPiece.from.type === 'hand') {
-                // 選択中のサイズで、表示されているもののうち、クリックしたもの(lastSelectedHandXに近いもの)を光らせる
-                // 簡易的に「選択サイズで、表示されている最初のもの」を光らせる（または厳密にID管理してもよい）
-                const target = slots.find(s => s.mesh.visible && s.size === selectedPiece.size);
-                // ※厳密にはクリックしたその個体を光らせたいが、データ構造上 selectedPiece に ID がないので
-                //  操作感としては「そのサイズを持っている」ことがわかればOK
-                //  （もし厳密にするなら selectedPiece に slotId を持たせる修正が必要）
-            }
         });
     });
-    
-    // ハイライトの再適用（メッシュが変わったわけではないので、既存のままでもおおよそ動くが念のため）
-    if (selectedPiece && selectedPiece.from.type === 'hand' && selectedMesh) {
-         // すでに光っていればそのまま
-    }
 }
 
 // --- モーダル関連イベント ---
@@ -1090,23 +1077,6 @@ tabButtons.forEach(btn => {
     });
 });
 
-if (modalRestartBtn) {
-    modalRestartBtn.addEventListener('click', () => {
-        // ★ここから追加: 観戦者チェック★
-        if (mySlot === 'spectator') {
-            addLog('⚠ 観戦者はゲームの再戦リクエストを送信できません。');
-            modalOverlay.classList.add('hidden');
-            return; // 処理をここで中断
-        }
-        // ★追加ここまで★
-        socket.emit('restart_game', {}, (ack) => {
-            if (ack && ack.ok) addLog('再戦リクエスト送信');
-            else if (ack && ack.error) addLog('再戦失敗: ' + ack.error);
-        });
-        modalOverlay.classList.add('hidden');
-    });
-}
-
 if (modalLeaveBtn) {
     modalLeaveBtn.addEventListener('click', () => {
         socket.disconnect();
@@ -1140,21 +1110,64 @@ function showResult(winner) {
     resultOverlay.classList.remove('hidden');
     resultContent.classList.remove('lose'); 
 
+    // 初期状態リセット
+    resultWaitMsg.classList.add('hidden');
+    [btnRematch, btnSpectate, btnLeave].forEach(b => {
+        b.disabled = false;
+        b.style.opacity = '1';
+        b.style.cursor = 'pointer';
+    });
+
     if (mySlot === 'spectator') {
         resultTitle.textContent = "GAME SET";
         resultMessage.textContent = `勝者: ${winner}`;
-    } else if (winner === mySlot) {
-        resultTitle.textContent = "YOU WIN!";
-        resultMessage.textContent = "おめでとうございます！";
-        fireConfetti(); 
-        playSE('win');
+        playerActions.classList.add('hidden');
+        spectatorActions.classList.remove('hidden');
     } else {
-        resultTitle.textContent = "YOU LOSE...";
-        resultMessage.textContent = "ドンマイ！次は勝てます！";
-        resultContent.classList.add('lose'); 
-        playSE('lose');
+        // プレイヤーの場合
+        playerActions.classList.remove('hidden');
+        spectatorActions.classList.add('hidden');
+
+        if (winner === mySlot) {
+            resultTitle.textContent = "YOU WIN!";
+            resultMessage.textContent = "おめでとうございます！";
+            fireConfetti(); 
+            playSE('win');
+        } else {
+            resultTitle.textContent = "YOU LOSE...";
+            resultMessage.textContent = "ドンマイ！次は勝てます！";
+            resultContent.classList.add('lose'); 
+            playSE('lose');
+        }
     }
 }
+
+// 決定ボタンを押した時のUI処理
+function onDecisionMade(choice) {
+    // ボタンを無効化
+    [btnRematch, btnSpectate, btnLeave].forEach(b => {
+        b.disabled = true;
+        b.style.opacity = '0.5';
+        b.style.cursor = 'not-allowed';
+    });
+    
+    if (choice === 'leave') {
+        socket.disconnect();
+        window.location.href = window.location.pathname; // ホームへ
+        return;
+    }
+
+    // 待機メッセージ表示
+    resultWaitMsg.classList.remove('hidden');
+    
+    // サーバーへ送信
+    socket.emit("submit_decision", { choice });
+}
+
+btnRematch.addEventListener('click', () => onDecisionMade('rematch'));
+btnSpectate.addEventListener('click', () => onDecisionMade('spectate'));
+btnLeave.addEventListener('click', () => onDecisionMade('leave'));
+
 
 function fireConfetti() {
     const count = 200;
@@ -1177,16 +1190,6 @@ function fireConfetti() {
     fire(0.1, { spread: 120, startVelocity: 45 });
 }
 
-if (resultRestartBtn) {
-    resultRestartBtn.addEventListener('click', () => {
-        socket.emit('restart_game', {}, (ack) => {
-            if (ack && ack.ok) {
-                addLog('再戦リクエスト送信');
-                resultOverlay.classList.add('hidden'); 
-            }
-        });
-    });
-}
 
 if (resultCloseBtn) {
     resultCloseBtn.addEventListener('click', () => {
@@ -1206,48 +1209,56 @@ socket.on('assign', (d) => {
         meLabel.textContent = mySlot;
         addLog(`(System) Role Assigned: ${d.slot}`);
         
-        // ★追加: Player Bならカメラを反対側に移動
-        if (mySlot === 'Orange') {
-            camera.position.set(0, 15, -18); // Zをマイナスに
-            camera.lookAt(0, 0, 0);
-        } else {
-            camera.position.set(0, 15, 18); // Aなら定位置
-            camera.lookAt(0, 0, 0);
-        }
+        // カメラ設定更新
+        updateCameraForRole(mySlot);
 
         if (state) render(state);
     }
 });
+
+function updateCameraForRole(role) {
+    if (role === 'Orange') {
+        camera.position.set(0, 15, -18); 
+        camera.lookAt(0, 0, 0);
+    } else {
+        // Blue or Spectator
+        camera.position.set(0, 15, 18); 
+        camera.lookAt(0, 0, 0);
+    }
+}
+
 socket.on('start_game', (s) => {
-  resultOverlay.classList.add('hidden');
+  resultOverlay.classList.add('hidden'); // リザルトを閉じる
   addLog('ゲーム開始！');
   clearSelection();
   render(s);
 
-   // --- カットイン表示処理 ---
    if (!mySlot || mySlot === 'spectator') {
     return; 
   }
-  //if(mySlot) {
    turnCutIn.classList.remove('hidden');
    if(s.currentTurn === mySlot) {
     cutinText.textContent = "あなたが【先攻】です！";
-    cutinText.style.color = "#ff4757"; // 先攻の色
+    cutinText.style.color = "#ff4757"; 
     turnCutIn.querySelector('.cutin-content').style.borderColor = "#ff4757";
    } else {
     cutinText.textContent = "あなたは【後攻】です";
-    cutinText.style.color = "#2ed573"; // 後攻の色
+    cutinText.style.color = "#2ed573"; 
     turnCutIn.querySelector('.cutin-content').style.borderColor = "#2ed573";
    }
 
-   // 2秒後に自動で消す
    setTimeout(() => {
      turnCutIn.classList.add('hidden');
    }, 2000);
- //}
 });
 socket.on('update_state', (s) => {
-  render(s); 
+    // 待機中に戻った場合はリザルトを消すかどうか？
+    // 勝者が消えていればリセットとみなす
+    if (!s.winner && !resultOverlay.classList.contains('hidden')) {
+        // もし自分がSpectatorになっていて、前のゲームが終わったならリザルトを消す
+        resultOverlay.classList.add('hidden');
+    }
+    render(s); 
 });
 socket.on('invalid_move', (d) => {
   addLog('不正手: ' + (d && d.reason ? d.reason : 'unknown'));
