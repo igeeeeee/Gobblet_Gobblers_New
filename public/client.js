@@ -893,7 +893,7 @@ function onCanvasClick(event) {
             };
             socket.emit('place_piece', payload, (ack) => {
                 if (ack && ack.error) {
-                    showPopup('エラー: ' + ack.error);
+                    showPopup(ack.error);
                     addLog('エラー: ' + ack.error);
                     return;
                 }
@@ -919,7 +919,7 @@ function onCanvasClick(event) {
             };
             socket.emit('place_piece', payload, (ack) => {
                 if (ack && ack.error) {
-                    showPopup('エラー: ' + ack.error);
+                    showPopup(ack.error);
                     addLog('エラー: ' + ack.error);
                     return;
                 }
